@@ -1,0 +1,16 @@
+# On UEFI PXE boot, Xfbdev is required because the graphics system is already initialized 
+Xfbdev-jwm-desktop.tcz
+# Other options (for non UEFI hardware):
+#Xorg-jwm-desktop.tcz
+#Xvesa-jwm-desktop.tcz
+# TODO: test creating the assets with Xfbdev+Xvesa 
+# and then injecting the onboot.lst works
+
+# TinyCoreLinux 17.x failed to load ncursesw so we add this explicitly
+ncursesw.tcz
+flwm_topside.tcz
+kmaps.tcz
+7zip.tcz
+ntfs-3g.tcz
+spacefm.tcz
+netsurf.tcz
