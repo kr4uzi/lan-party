@@ -14,7 +14,7 @@ foreach ($config["entries"] as $win => &$cfg) {
 
 $warnings = [];
 try {
-    $db = new PDO("sqlite:" . $config["windrv"]["db"]);
+    $db = new PDO("sqlite:" . $config["windrv"]["db"], null, null, [PDO::SQLITE_ATTR_OPEN_FLAGS => PDO::SQLITE_OPEN_READONLY]);
     $db->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 } catch (Exception $e) {
     array_push($warnings, "Database connection failed. {$e}");
@@ -26,13 +26,18 @@ try {
 // note: no echos until "menu entry creation"
 //
 if ($db) {
-    $ven    = $_GET['ven'] ?? '';
-    $dev    = $_GET['dev'] ?? '';
-    $subven = $_GET['subven']  ?? '';
-    $subsys = $_GET['subsys']  ?? '';
-    $rev    = $_GET['rev'] ?? '';
-    $hwids  = array();
-    if (!empty($ven) && !empty($dev)) {
+    $hwids = array();
+    $nics  = $_GET['nics'] ?? [];
+    foreach ($nics as $nic) {
+        $ven    = $nic['ven']    ?? '';
+        $dev    = $nic['dev']    ?? '';
+        $subven = $nic['subven'] ?? '';
+        $subsys = $nic['subsys'] ?? '';
+        $rev    = $nic['rev']    ?? '';
+        if (empty($ven) || empty($dev)) {
+            continue;
+        }
+
         // https://learn.microsoft.com/windows-hardware/drivers/install/identifiers-for-pci-devices
         $ven = strtoupper($ven);
         $dev = strtoupper($dev);
@@ -70,6 +75,13 @@ if ($db) {
                 break;
             }
 
+            $guid = shell_exec("wimlib-imagex info " . escapeshellarg($wimFile) . " --header | grep 'GUID' | sed 's/.*=\s*//'");
+            $guid = trim($guid);
+            if (!$guid) {
+                array_push($warnings, "Could not read {$wimFile}");
+                continue;
+            }
+
             $xmlRaw = shell_exec("wimlib-imagex info " . escapeshellarg($wimFile) . " --xml");
             if (!$xmlRaw) {
                 array_push($warnings, "Could not read {$wimFile}");
@@ -101,20 +113,19 @@ if ($db) {
             }
 
             foreach($hwids as $hwid) {
-                $sql = "SELECT target.id as target_id, container.name as container_name
+                $sql = "SELECT target.id as target_id, driver.container as container
                     FROM `target`
                     JOIN driver ON driver.id = target.driver
-                    LEFT JOIN container ON container.driver = driver.id
                     WHERE target.arch = :arch
                     AND target.hwid = :hwid
-                    AND (container.name = :container_name OR container.driver IS NULL)
+                    AND (driver.container = :container OR driver.container IS NULL)
                     AND (target.os_major = :major AND (
                             target.os_minor <= :minor AND (
                                 target.os_build <= :build OR target.os_build IS NULL
                             ) OR target.os_minor IS NULL
                         ) OR target.os_major IS NULL
                     )
-                    ORDER BY (container.name IS NOT NULL) DESC,
+                    ORDER BY (driver.container IS NOT NULL) DESC,
                         target.os_major DESC, target.os_minor DESC, target.os_build DESC,
                         target.date DESC,
                         target.v_major DESC, target.v_minor DESC, target.v_patch DESC, target.v_build DESC
@@ -127,16 +138,17 @@ if ($db) {
                     ':minor' => $minor,
                     ':build' => $build,
                     ':hwid'  => $hwid,
-                    ':container_name' => $wimFile
+                    ':container' => $guid
                 ]);
                 $match = $stmt->fetch(PDO::FETCH_ASSOC);
                 if ($match) {
                     $cfg["{$wimType}-driver-missing"] = false;
 
-                    // if the driver is *not* found in the {boot|install}.wim add it to the initialization
-                    if ($match['container_name'] != $wimFile) {
+                    // if the driver is *not* found in the {boot|install}.wim add it to the initialization list
+                    if ($match['container'] != $wimFile) {
                         $cfg["{$wimType}-driver-target"][] = $match['target_id'];
                     }
+
                     break;
                 }
             }
@@ -205,13 +217,11 @@ exit
 foreach ($entries as $win => &$cfg) {
     echo(":win_{$win}\n");
     echo("kernel wimboot\n");
-    foreach ($cfg['init'] as $name => $file) {
-        echo("initrd {$file} {$name}\n");
-    }
-    
-    echo("initrd " . $config["pxe"]["http"] . "/" . $cfg["boot"] . " boot.wim\n");
+    echo("initrd BCD BCD\n");
+    echo("initrd win/boot.sdi boot.sdi\n");
+    echo("initrd -n boot.wim " . $config["pxe"]["http"] . "/" . $cfg["boot"] . " boot.wim\n");
     echo("initrd -n winpeshl.ini win/winpeshl.ini winpeshl.ini\n");
-        
+
     $bootTargets = $cfg["boot-driver-target"] ?? [];
     $installTargets = $cfg["install-driver-target"] ?? [];
     $targets = array_unique(array_merge($bootTargets, $installTargets));
@@ -221,6 +231,10 @@ foreach ($entries as $win => &$cfg) {
     }
 
     $params = "install-wim=" . urlencode($cfg["install"]);
+    if (isset($cfg["unattend"])) {
+        $params .= "&unattend=" . urlencode($cfg["unattend"]);
+    }
+
     foreach ($bootTargets as $id) {
         $params .= "&boot-driver-target={$id}";
     }

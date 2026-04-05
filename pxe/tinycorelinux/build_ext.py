@@ -74,9 +74,6 @@ def build_assets(ver, basedir, name, config):
             print("Aborting...")
             return
 
-    with open(os.path.join(tce_dir, "onboot.lst"), "w") as f:
-        f.write('\n'.join(seeds))  
-
     for e in os.scandir(opt_dir):
         if e.is_file():
             if e.name in required_files: continue

@@ -41,13 +41,14 @@ To create the WinPE required for the installation of a particular Windows versio
 | WinPE Version | Derived From  | AIK / ADK |
 | ------------- | ------------- | --- |
 | WinPE 1.5     | Win XP SP2    | |
-| WinPE 2.0     | Windows Vista | |
+| WinPE 2.0     | Windows Vista | https://www.microsoft.com/en-us/download/details.aspx?id=10333 |
 | WinPE 3.0     | Windows 7     | https://www.microsoft.com/en-us/download/details.aspx?id=5753 |
 | WinPE 3.1     | Windows 7 SP1 | https://www.microsoft.com/en-us/download/details.aspx?id=5188 |
 | WinPE 4.0     | Windows 8     | |
 | WinPE 5.0     | Windows 8.1   | |
 | 10.0.x        | Windows 10    | |
 | 10.0.22000    | Windows 11    | https://learn.microsoft.com/en-us/windows-hardware/get-started/adk-instal |
+Reference: https://social.technet.microsoft.com/wiki/contents/articles/33619.windows-pe-version-overview.aspx
 
 Note: Drivers working a certain windows version also work no the derived WinPE - for this reason it is recommended to install Windows from a matching WinPE.
 To identify the exact windows version, you can use `wimlib-imagex info win7/winpe.wim`
@@ -72,15 +73,7 @@ dism /Add-Package /Image:C:\winpe\mount /PackagePath:"C:\Program Files (x86)\Win
 dism /Add-Package /Image:C:\winpe\mount /PackagePath:"C:\Program Files (x86)\Windows Kits\10\Assessment and Deployment Kit\Windows Preinstallation Environment\amd64\WinPE_OCs\en-us\WinPE-Setup_en-us.cab"
 dism /Add-Package /Image:C:\winpe\mount /PackagePath:"C:\Program Files (x86)\Windows Kits\10\Assessment and Deployment Kit\Windows Preinstallation Environment\amd64\WinPE_OCs\WinPE-Setup-Client.cab"
 dism /Add-Package /Image:C:\winpe\mount /PackagePath:"C:\Program Files (x86)\Windows Kits\10\Assessment and Deployment Kit\Windows Preinstallation Environment\amd64\WinPE_OCs\en-us\WinPE-Setup-Client_en-us.cab"
-
-@echo off
-(
-echo [Available UI Languages]
-echo en-US = 3
-echo.
-echo [Fallback Languages]
-echo en-US = en-us
-) > "C:\winpe\mount\sources\lang.ini"
+dism /Gen-LangINI /Image:c:\winpe\mount /Distribution:c:\winpe\mount
 
 Dism /Cleanup-Image /Image=C:\winpe\mount /StartComponentCleanup /ResetBase /ScratchDir:C:\winpe\mount\temp
 dism /Unmount-Image /MountDir:C:\winpe\mount /Commit
@@ -89,16 +82,27 @@ dism /Export-Image /SourceImageFile:C:\winpe\media\sources\boot.wim /Destination
 ```
 
 # WinPE: Windows 7
-## Prepare the fully updated ISO
+## Prepare the patched Win7 Pro install.wim
 Update History: https://support.microsoft.com/en-us/help/4009469
-ISO Creator: https://blog.simplix.info/update7/
-ISO Files: https://archive.org/details/windows-7-sp0-sp1-msdn-iso-files-en-de-ru-tr-x86-x64
-Win7 Professional 64bit SHA1: 708e0338d4e2f094dfeb860347c84a6ed9e91d0c
+Update Pack: https://blog.simplix.info/update7/
+SHA1:
+- 64bit EN: 0BCFC54019EA175B1EE51F6D2B207A3D14DD2B58
+- 32bit EN: D89937DF3A9BC2EC1A1486195FD308CD3DADE928
 ```powershell
-Get-FileHash en_windows_7_professional_with_sp1_vl_build_x64_dvd_u_677791.iso -Algorithm SHA1 | Format-List
+Get-FileHash win7{x86,x64}.iso -Algorithm SHA1 | Format-List
+```
+```sh
+sha1 win7{x86,x64}.iso
 ```
 
-Install the creator, then drag & drop the ISO image to the unpacked creator executable.
+Drag & drop the ISO image onto the update pack - a fully upgraded Windows 7 Professional Image will be created.
+TODO: As the boot.wim from this ISO contains USB3 and NVMe drivers, this is probably preferred to the winpe one (as we cannot add the NVMe patches there - see below).
+
+Installing a Browser:
+```powershell
+$wc = New-Object System.Net.WebClient
+$wc.DownloadFile("https://ftp.mozilla.org/pub/firefox/releases/115.0esr/win64/en-US/Firefox%20Setup%20115.0esr.msi", "ff115.msi")
+```
 
 ## Enable secure boot
 Install it onto a VM, boot into safe mode (F8 during boot, select safeboot with networking) and open diskpart (cmd > diskpart)
@@ -113,17 +117,45 @@ From there (using ssh) copy it to /srv/pxe/win7
 ## WinPE
 Launch the "Deployment Tools Command Prompt" as Administrator
 ```cmd
-copype amd64 c:\winpe
-dism /mount-wim /wimfile:c:\winpe\winpe.wim /index:1 /mountdir:c:\winpe\mount
---- add drivers like above
-dism /Add-Package /Image:c:\winpe\mount /PackagePath:"C:\Program Files\Windows AIK\Tools\PETools\amd64\WinPE_FPs\winpe-setup.cab"
-dism /unmount-wim /mountdir:c:\winpe\mount /commit
+copype amd64 c:\winpe64
+dism /mount-wim /wimfile:c:\winpe64\winpe.wim /index:1 /mountdir:c:\winpe64\mount
+dism /Add-Package /Image:c:\winpe64\mount /PackagePath:"C:\Program Files\Windows AIK\Tools\PETools\amd64\WinPE_FPs\winpe-setup.cab"
+dism /Add-Package /Image:c:\winpe64\mount /PackagePath:"C:\Program Files\Windows AIK\Tools\PETools\amd64\WinPE_FPs\en-us\winpe-setup_en-us.cab"
+dism /Add-Package /Image:c:\winpe64\mount /PackagePath:"C:\Program Files\Windows AIK\Tools\PETools\amd64\WinPE_FPs\winpe-setup-client.cab"
+dism /Add-Package /Image:c:\winpe64\mount /PackagePath:"C:\Program Files\Windows AIK\Tools\PETools\amd64\WinPE_FPs\en-us\winpe-setup-client_en-us.cab"
+dism /Gen-LangINI /Image:c:\winpe64\mount /Distribution:c:\winpe64\mount
+
+dism /unmount-wim /mountdir:c:\winpe64\mount /commit
+imagex /export c:\winpe64\winpe.wim 1 c:\winpe64\winpec.wim /compress maximum
 ```
 
-Note: The Windows 7 AIK dism doesn't offer any compression capability. It can be compressed using wimlib though.
+The install.wim *must not* be compressed with LZMA though because WinPE 3.1 doesn't support this (only use max/maximum compression flag).
+
+### NVMe Support
+There are two hotfixes which are required for native NVMe support (KB2990941 [retracted] and KB3087873). Adding those updates using /Add-Package worked, but they were then in "install pending".
+
+I tried calling the simplix updater explicitly:
+```cmd
+imagex /export D:\sources\install.wim 3 c:\win7pro.wim
+UpdatePack7R2-26.1.15 /Boot=c:\winpe64\winpe.wim /Index=1 /WimFile=C:\win7pro.wim /Index=1 /FixOff /NVMe /Optimize
+```
+However both the Hotfixes returned code 0x800F0830 and the resulting boot wim didn't contain the update.
+
+This might be related to the type of NVMe was added to the system (Parallels SCSI NVMe), but with an NVMe installed I was not able to boot the VM (freeze at disk.sys).
+After full installation the NVMe disk could be added again. This is bad news for a native NVMe installation though...
 
 # Windows XP PE
-TBD
+## Prepare a fully Updated ISO
+SHA1:
+- SP3 EN x86    : 1C735B38931BF57FB14EBD9A9BA253CEB443D459 (589MB)
+- SP2 EN x64    : 747B4C9A6F29082A88DAA6C3D298585C6959D7A1 (628MB)
+- SP2 EN x64 OEM: 402CF4C7AA1EC80938C0A82AE79F2E154FDDE728 (628MB)
+Note: There is no SP3 for WinXP x64!
+
+Great analysis of the Integral edition (which includes "all" updates):
+https://www.youtube.com/watch?v=NieZ4dHisGo
+-> SMB NULL authentication is re-enabled
+-> conclusion: do not install the Integral edition
 
 # Samba Network
 With Windows 11, unauthenticated shares are no longer accessible (which has what security benefit exactly if now everyone is using
@@ -133,7 +165,6 @@ sudo adduser --no-create-home --disabled-password --disabled-login pxe
 sudo smbpasswd -a pxe
 sudo service smbd force-reload
 ```
-
 
 The Samba Server in its default configuration cleans up dead connection only after several hours
 which causes the network drive mounting to fail very often. I do not know the exact reasons, but it only
@@ -154,16 +185,10 @@ guest ok = no
 ```
 
 # Reset / Cleanup / Remove Driver / Delete winpe
-(reboot pc)
 dism /Get-MountedWimInfo
 dism /Unmount-Image /MountDir:C:\winpe\mount /Discard
 dism /cleanup-wim
 dism /Cleanup-Mountpoints
-
-dism /image:C:\winpe\mount /Get-Drivers
-dism /Image:C:\winpe\mount /Remove-Driver /Driver:OEM1.inf /Driver:OEM2.inf
-
-/Cleanup-Image /StartComponentCleanup
 
 # BCD (Boot Configuration Data)
 This data is required for the bootloader and the generated file is used by Win 7 to Windows 11 WinPEs.
@@ -185,13 +210,11 @@ bcdedit /store BCD /set {default} osdevice ramdisk=[boot]\Boot\boot.wim,{ramdisk
 ```
 
 # Scan Builtin Drivers
-mkdir -p /srv/windrv/builtin/win11/bootamd64
-sudo wimextract /srv/pxe/win11/bootamd64.wim 1 /Windows/System32/DriverStore/FileRepository/**/*.inf --dest-dir=/srv/windrv/builtin/win11/bootamd64
-sudo wimextract /srv/pxe/win11/installamd64.wim 1 /Windows/System32/DriverStore/FileRepository/**/*.inf --dest-dir=/srv/windrv/builtin/win11/installamd64
-
+```sh
 cd /srv/windrv
-find ./builtin/win11/bootamd64 -name "*.inf" | xargs -I {} python3 windrvscan.py --container=win11/bootamd64.wim "{}"
-find ./builtin/win11/installamd64 -name "*.inf" | xargs -I {} python3 windrvscan.py --container=win11/installamd64.wim "{}"
+source .venv/bin/activate
+windrvscan.py --filter-class=Net /srv/pxe/win11/bootamd64.wim
+```
 
 # Live boot windows
 https://forum.level1techs.com/t/iscsi-boot-real-pcs-from-kvm-qcow2-images/139137/8

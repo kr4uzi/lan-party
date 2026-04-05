@@ -1,11 +1,22 @@
 #!ipxe
 
-set nloc ${netX/busloc}
+set base-url http://${next-server}/pxe
+set mt86p_ver 800
+iseq ${buildarch} x86_64 && set mt86p_arch x86_64 ||
+iseq ${buildarch} i386   && set mt86p_arch i586   ||
+iseq ${buildarch} arm64  && set mt86p_arch la64   ||
+
+set nicidx:int32 0
+:nicloop
+isset ${net${nicidx}/mac} || goto start
+set nloc ${net${nicidx}/busloc}
 set ven ${pci/${nloc}.0x00.2}
 set dev ${pci/${nloc}.0x02.2}
 set rev ${pci/${nloc}.0x08.1}
 set subven ${pci/${nloc}.0x2C.2}
 set subsys ${pci/${nloc}.0x2E.2}
+set nicdata ${nicdata}&nics[${nicidx}][mac]=${net${nicidx}/mac:hexhyp}&nics[${nicidx}][ven]=${ven}&nics[${nicidx}][dev]=${dev}&nics[${nicidx}][rev]=${rev}&nics[${nicidx}][subven]=${subven}&nics[${nicidx}][subsys]=${subsys}
+inc nicidx && goto nicloop
 
 :start
 menu Network Boot
@@ -42,13 +53,29 @@ goto settings
 #
 :tools
 menu Tools
-item memtest MemTest86
+goto tools_${platform}
+
+:tools_efi
+item mt86 MemTest86
+iseq ${efi/SecureBoot} 00 && goto tools_pcbios || goto tools_choose
+
+:tools_pcbios
+isset mt86p_arch && item mt86p MemTest86+ ||
 item clonezilla CloneZilla
+
+:tools_choose
 item start <back>
 choose target && goto ${target}
 
-:memtest
+:mt86
 sanboot ${base-url}/tools/memtest86-usb.img
+# exiting from memtest86 is actually possible
+goto start
+
+:mt86p
+chain --autofree ${base-url}/tools/mt86p_${mt86p_ver}_${mt86p_arch}
+# memtest86+ reboots on exit, but for good measure we go back to start
+goto start
 
 :clonezilla
 kernel ${base-url}/tools/clonezilla/vmlinuz initrd=initrd.img boot=live config noswap nolocales edd=on nomodeset vga=788 nosplash noprompt fetch=${base-url}/tools/clonezilla/filesystem.squashfs
@@ -59,7 +86,7 @@ boot
 # Windows
 #
 :windows
-chain --autofree http://${next-server}/pxe/win/menu.php?arch=${buildarch}&platform=${platform}&sb=${efi/SecureBoot}&mac=${mac:hexhyp}&uuid=${uuid}&ven=${ven}&dev=${dev}&subven=${subven}&subsys=${subsys}&rev=${rev}
+chain --autofree http://${next-server}/pxe/win/menu.php?arch=${buildarch}&platform=${platform}&sb=${efi/SecureBoot}&uuid=${uuid}${nicdata}
 goto start
 
 #
@@ -79,7 +106,7 @@ initrd ${base-url}/tinycore/rootfs${tinylib}.gz
 initrd ${base-url}/tinycore/core.gz
 initrd ${base-url}/tinycore/modules${tinylib}.gz
 initrd ${base-url}/tinycore/assets${tinylib}.gz
-initrd ${base-url}/tinycore/onboot${platform}.lst /assets/onboot.lst
+initrd ${base-url}/tinycore/onboot_${platform}.lst /assets/onboot.lst
 boot
 
 :ubuntu

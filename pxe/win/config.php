@@ -10,27 +10,27 @@ return [
     ],
     "entries" => [
         "tiny11" => [
-            "init" => ["BCD" => "win11/BCD", "boot.sdi" => "win11/boot.sdi"],
             "boot" => "win11/boot.wim",
             "install" => "win11/tiny11pro.wim",
-            "name" => "Windows 11 (Tiny Pro)"
+            "name" => "Windows 11 (Tiny Pro)",
+            "unattend" => "win11/win11standard.xml"
         ],
         "win11" => [
-            "init" => ["BCD" => "win11/BCD", "boot.sdi" => "win11/boot.sdi"],
             "boot" => "win11/boot.wim",
             "install" => "win11/install.wim",
-            "name" => "Windows 11"
+            "name" => "Windows 11",
+            "unattend" => "win11/win11standard.xml"
         ],
         "win7" => [
-            "init" => ["BCD" => "win7/BCD", "boot.sdi" => "win7/boot.sdi"],
-            "boot" => "win7/boot.wim",
+            "boot" => "win7/boot_x86_64.wim",
             "install" => "win7/install.wim",
             "name" => "Windows 7",
             // Note: this is the signed (secure boot enabled!) file
             //       from Windows 7 ESU image
             "extra" => [
-                "initrd win7/bootmgfw.efi bootmgfw.efi"
-            ]
+               "initrd -n bootmgfw.efi win7/bootmgfw.efi bootmgfw.efi",
+            ],
+            "unattend" => "win7/win7standard.xml"
         ]
     ]
 ];

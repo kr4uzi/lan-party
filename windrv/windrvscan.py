@@ -1,10 +1,15 @@
+#!/usr/bin/env python
 import os
+import codecs
+from unittest.mock import patch, mock_open
+import subprocess
 import argparse
 import pathlib
 import wininfparser
 import sqlite3
 from packaging import version as pkgver
 from datetime import datetime
+
 
 class DriverTarget:
     HardwareID: str
@@ -35,6 +40,8 @@ class DriverTarget:
 
 
 class DriverFile:
+    valid: bool
+    klass: str
     infPath: pathlib.Path
     rootPath: pathlib.Path
     version: pkgver.Version
@@ -49,7 +56,9 @@ class DriverFile:
     # tuple(arch, filename)
     sourceDiskFiles: dict[tuple[str, str], pathlib.Path]
 
-    def __init__(self, path: str):
+    def __init__(self, path: str, wim=None):
+        self.valid = False
+        self.klass = ""
         self.infPath = pathlib.Path(path)
         self.rootPath = self.infPath.parent
         self.sections = {}
@@ -60,7 +69,20 @@ class DriverFile:
         self.targets = []
 
         self.inf = wininfparser.WinINF()
-        self.inf.ParseFile(path)
+        if wim:
+            data = subprocess.run(["wimextract", wim[0], str(wim[1]), path, "--to-stdout"], capture_output=True).stdout
+            # https://learn.microsoft.com/en-us/windows-hardware/drivers/display/general-unicode-requirement
+            # INF files must be saved with Unicode (UTF-16 LE) or ANSI file encoding
+            if data.startswith(codecs.BOM_UTF16_LE):
+                data = data.decode("utf-16")
+            else:
+                data = data.decode('cp1252')
+
+            with patch("builtins.open", mock_open(read_data=data)) as mocked_file:
+                self.inf.ParseFile(path)
+                #mocked_file.assert_called_once_with(path)
+        else:
+            self.inf.ParseFile(path)
 
         for name in self.inf.Sections():
             # Section names, entries, and directives are case-insensitive.
@@ -85,8 +107,12 @@ class DriverFile:
             print("error: no warning section found")
             return
             
-        self._parseSourceFiles()
         self._parseVersion()
+        self.valid = True
+
+
+    def parseDevices(self):
+        self._parseSourceFiles()
         self._parseManufacturer()
 
         if len(self.targets):
@@ -255,6 +281,7 @@ class DriverFile:
                 hardwareIDs = parts[1:]
                 for id in hardwareIDs:
                     id = id.strip().upper() # devmgmt.msc always shows only upper cased hardware ids (?)
+                    if not id: continue
                     if not id in deviceSections: deviceSections[id] = set()
                     deviceSections[id].add(installSection)
 
@@ -353,7 +380,9 @@ class DriverFile:
     def _parseVersion(self):
         # TODO: Implement support for "LayoutFile"
         for key, value, _ in self.sections["version"]:
-            if key.startswith("catalogfile"):
+            if key == "class":
+                self.klass = value
+            elif key.startswith("catalogfile"):
                 arch = key[key.find("catalogfile.") + 1:] if '.' in key else ''
                 if not arch in self.catalogs: self.catalogs[arch] = set()
                 self.catalogs[arch].add(self.rootPath.joinpath(value))
@@ -405,14 +434,8 @@ class DriverDatabase:
                 CREATE TABLE IF NOT EXISTS driver (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     root TEXT NOT NULL,
-                    inf TEXT NOT NULL
-                )""")
-            
-            self.conn.execute("""
-                CREATE TABLE IF NOT EXISTS container (
-                    driver INTEGER NOT NULL,
-                    name TEXT NOT NULL,
-                    FOREIGN KEY (driver) REFERENCES driver(id) ON DELETE CASCADE
+                    inf TEXT NOT NULL,
+                    container TEXT
                 )""")
             
             self.conn.execute("""
@@ -420,7 +443,7 @@ class DriverDatabase:
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     driver INTEGER NOT NULL,
                     root TEXT NOT NULL,
-                    hwid TEXT,
+                    hwid TEXT NOT NULL,
                     arch TEXT,
                     os_major INTEGER,
                     os_minor INTEGER,
@@ -448,21 +471,23 @@ class DriverDatabase:
     def addDriver(self, id: int | None, root: str, inf: str, container: str | None) -> int:
         with self.conn:
             if id:
-                self.conn.execute("INSERT OR IGNORE INTO driver (id, root, inf) VALUES (?, ?, ?)", (id, root, inf))
+                self.conn.execute("INSERT OR IGNORE INTO driver (id, root, inf, container) VALUES (?, ?, ?, ?)", (id, root, inf, container if container else ""))
             else:
-                cursor = self.conn.execute("INSERT INTO driver (root, inf) VALUES (?, ?)", (root, inf))
+                cursor = self.conn.execute("INSERT INTO driver (root, inf, container) VALUES (?, ?, ?)", (root, inf, container if container else ""))
                 id = cursor.lastrowid
 
-            if container:
-                self.conn.execute("INSERT OR IGNORE INTO container (driver, name) VALUES (?, ?)", (id, container))
-            
             return id
+        
+    def removeContainer(self, container: str):
+        if container:
+            with self.conn:
+                self.conn.execute("DELETE FROM driver WHERE container=?", (container,))
 
-    def removeDriver(self, root: str, inf: str):
+    def removeDriver(self, root: str, inf: str, container: str):
         with self.conn:
             cursor = self.conn.execute(
-                "DELETE FROM driver WHERE root = ? AND inf = ? RETURNING id",
-                (root, inf)
+                "DELETE FROM driver WHERE root = ? AND inf = ? AND container = ? RETURNING id",
+                (root, inf, container)
             )
             res = cursor.fetchone()
             if res: return res[0]
@@ -486,43 +511,88 @@ class DriverDatabase:
     def close(self):
         self.conn.close()
 
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
         description="INF File Parser for Windows Drivers"
     )
 
     parser.add_argument(
-        "-db", "--database", 
+        "--database", 
         help="Path to the output file (default: %(default)s)",
         default="drivers.sqlite3",
         metavar="dbfile"
     )
 
     parser.add_argument(
-        "-c", "--container",
-        help="add scanned drivers to a container"
+        "--container",
+        help="add scanned drivers to a container (wim's guid is used by default for built-in scans)"
     )
 
-    # stdin is not supported because wininfparser doesn't support it
     parser.add_argument(
-        "inf_files", 
-        help="One or more Windows INF files to parse",
+        "--class-filter",
+        help="only add drivers for the given class (e.g. Net, Display, Bluetooth)",
+        nargs="+"
+    )
+
+    parser.add_argument(
+        "files", 
+        help="One or more Windows INF or WIM files (for built-in scans) to parse",
         nargs="+",
-        metavar="infilepath"
+        metavar="filepath"
     )
 
     args = parser.parse_args()
     with DriverDatabase(args.database) as db:
-        for path in args.inf_files:
-            print("processing: " + path)
-            driver = DriverFile(path)
-            drvid = db.removeDriver(str(driver.rootPath), str(driver.infPath))
-            if len(driver.targets) == 0:
-                print("no hardware ids contained - ignoring")
-                continue
+        env = os.environ.copy()
+        env["WIMLIB_IMAGEX_IGNORE_CASE"] = "1"
 
-            drvid = db.addDriver(drvid, str(driver.rootPath), str(driver.infPath), args.container)
-            for d in driver.targets:
-                tid = db.addTarget(drvid, str(d.root), d.HardwareID, d.Architecture, d.OSMajorVersion, d.OSMinorVersion, d.BuildNumber, d.date, d.version)
-                for fpath in d.files:
-                    db.addFile(tid, str(fpath))
+        for path in args.files:
+            _, ext = os.path.splitext(path)
+            ext = ext.lower()
+
+            files = []
+            container = args.container
+            wim = None
+            if ext == ".wim":
+                image = 1
+                wim = (path, image)
+                print(f"processing: {path} (image={image})")
+                for file in subprocess.run(["wimdir", path, str(image), "--path=/Windows/INF"], capture_output=True, env=env).stdout.splitlines():
+                    file = file.decode("utf-8")
+                    if file.lower().endswith(".inf"): files.append(file)
+
+                if not container:
+                    for line in subprocess.run(["wimlib-imagex", "info", path, "--header"], capture_output=True).stdout.splitlines():
+                        line = line.decode("utf-8").lstrip().lower()
+                        if line.startswith("guid"):
+                            container = line[line.find("=") + 1:].strip()
+                            break
+            else:
+                files.append(path)
+
+            for file in files:
+                driver = DriverFile(file, wim=wim)
+                drvid = db.removeDriver(str(driver.rootPath), str(driver.infPath), container if container else "")
+                if not driver.valid: continue
+
+                if args.class_filter and driver.klass not in args.class_filter:
+                    continue
+
+                driver.parseDevices()
+                if len(driver.targets) == 0:
+                    print(file + " - no hardware ids contained - ignoring")
+                    continue
+
+                print("processing: " + file)
+                drvid = db.addDriver(drvid, str(driver.rootPath), str(driver.infPath), container)
+                for d in driver.targets:
+                    tid = db.addTarget(drvid, str(d.root), d.HardwareID, d.Architecture, d.OSMajorVersion, d.OSMinorVersion, d.BuildNumber, d.date, d.version)
+                    if not wim:
+                        # we do not store built-in drivers as the use-case for wim-parsing
+                        # is to check if driver for a device is built-in and not
+                        # to download those files (also, drivers are not store in /Windows/INF
+                        # but in /Windows/System32/DriverStore which requires a different 
+                        # parsing strategy)
+                        for fpath in d.files:
+                            db.addFile(tid, str(fpath))

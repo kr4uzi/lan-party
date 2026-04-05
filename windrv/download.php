@@ -7,7 +7,7 @@ if (!isset($_GET['target'])) {
 $config = require 'config.php';
 
 try {
-    $db = new PDO("sqlite:" . $config["db"]);
+    $db = new PDO("sqlite:" . $config["db"], null, null, [PDO::SQLITE_ATTR_OPEN_FLAGS => PDO::SQLITE_OPEN_READONLY]);
     $db->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 } catch (Exception $e) {
     die("Database connection failed. {$e}");

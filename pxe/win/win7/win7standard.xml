@@ -1,0 +1,93 @@
+<?xml version="1.0" encoding="utf-8"?>
+<unattend xmlns="urn:schemas-microsoft-com:unattend">
+    <settings pass="specialize">
+        <component name="Microsoft-Windows-Shell-Setup" processorArchitecture="amd64" publicKeyToken="31bf3856ad364e35" language="neutral" versionScope="nonSxS" xmlns:wcm="http://schemas.microsoft.com/WMIConfig/2002/State" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+            <ShowWindowsLive>false</ShowWindowsLive>
+        </component>
+        <component name="Microsoft-Windows-IE-InternetExplorer" processorArchitecture="amd64" publicKeyToken="31bf3856ad364e35" language="neutral" versionScope="nonSxS" xmlns:wcm="http://schemas.microsoft.com/WMIConfig/2002/State" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+            <SearchScopes>
+                <Scope wcm:action="add">
+                    <ScopeDefault>true</ScopeDefault>
+                    <ScopeDisplayName>Google</ScopeDisplayName>
+                    <ScopeKey>google</ScopeKey>
+                    <ScopeUrl>https://www.google.com/search?q={searchTerms}</ScopeUrl>
+                </Scope>
+            </SearchScopes>
+            <FilterLevel>High</FilterLevel>
+            <ShowInformationBar>false</ShowInformationBar>
+            <DisableAccelerators>true</DisableAccelerators>
+            <DisableOOBAccelerators>true</DisableOOBAccelerators>
+            <DisableFirstRunWizard>true</DisableFirstRunWizard>
+            <DisableDevTools>true</DisableDevTools>
+            <Home_Page>https://www.google.com</Home_Page>
+        </component>
+        <component name="Microsoft-Windows-ErrorReportingCore" processorArchitecture="amd64" publicKeyToken="31bf3856ad364e35" language="neutral" versionScope="nonSxS" xmlns:wcm="http://schemas.microsoft.com/WMIConfig/2002/State" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+            <DisableWER>1</DisableWER>
+        </component>
+    </settings>
+    <settings pass="oobeSystem">
+        <component name="Microsoft-Windows-Shell-Setup" processorArchitecture="amd64" publicKeyToken="31bf3856ad364e35" language="neutral" versionScope="nonSxS" xmlns:wcm="http://schemas.microsoft.com/WMIConfig/2002/State" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+            <FirstLogonCommands>
+                <SynchronousCommand wcm:action="add">
+                    <CommandLine>reg add HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced /v HideFileExt /t REG_DWORD /d 0 /f</CommandLine>
+                    <Description>Show File Extensions</Description>
+                    <Order>1</Order>
+                </SynchronousCommand>
+                <SynchronousCommand wcm:action="add">
+                    <Order>2</Order>
+                    <CommandLine>reg add HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced /v Hidden /t REG_DWORD /d 1 /f</CommandLine>
+                    <Description>Show hidden files</Description>
+                </SynchronousCommand>
+                <SynchronousCommand wcm:action="add">
+                    <Order>3</Order>
+                    <CommandLine>reg add HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced /v Start_ShowMyDocs /t REG_DWORD /d 0 /f</CommandLine>
+                    <Description>Start Menu/Documents (Hide)</Description>
+                </SynchronousCommand>
+                <SynchronousCommand wcm:action="add">
+                    <Order>4</Order>
+                    <CommandLine>reg add HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced /v Start_ShowMyPics /t REG_DWORD /d 0 /f</CommandLine>
+                    <Description>Start Menu/Pictures (Hide)</Description>
+                </SynchronousCommand>
+                <SynchronousCommand wcm:action="add">
+                    <Order>5</Order>
+                    <CommandLine>reg add HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced /v Start_ShowMyMusic /t REG_DWORD /d 0 /f</CommandLine>
+                    <Description>Start Menu/Music (Hide)</Description>
+                </SynchronousCommand>
+                <SynchronousCommand wcm:action="add">
+                    <Order>6</Order>
+                    <CommandLine>reg add HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced /v Start_ShowDownloads /t REG_DWORD /d 1 /f</CommandLine>
+                    <Description>Start Menu/Download (Show)</Description>
+                </SynchronousCommand>
+                <SynchronousCommand wcm:action="add">
+                    <Order>7</Order>
+                    <CommandLine>reg add HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced /v Start_ShowPrinters /t REG_DWORD /d 0 /f</CommandLine>
+                    <Description>Start Menu/Devices and Printers (Hide)</Description>
+                </SynchronousCommand>
+                <SynchronousCommand wcm:action="add">
+                    <Order>8</Order>
+                    <CommandLine>reg add HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced /v Start_ShowSetProgramAccessAndDefaults /t REG_DWORD /d 0 /f</CommandLine>
+                    <Description>Start Menu/Default Programs (Hide)</Description>
+                </SynchronousCommand>
+                <SynchronousCommand wcm:action="add">
+                    <Order>9</Order>
+                    <CommandLine>reg add HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced /v Start_ShowHelp /t REG_DWORD /d 0 /f</CommandLine>
+                    <Description>Start Menu/Help and Support (Hide)</Description>
+                </SynchronousCommand>
+                <SynchronousCommand wcm:action="add">
+                    <Order>10</Order>
+                    <CommandLine>reg add HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced /v Start_ShowRun /t REG_DWORD /d 1 /f</CommandLine>
+                    <Description>Start Menu/Run (Show)</Description>
+                </SynchronousCommand>
+                <SynchronousCommand wcm:action="add">
+                    <Order>11</Order>
+                    <CommandLine>reg delete HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\UserAssist /f</CommandLine>
+                    <Description>Start Menu (Clear)</Description>
+                </SynchronousCommand>
+            </FirstLogonCommands>
+            <OOBE>
+                <ProtectYourPC>3</ProtectYourPC>
+                <NetworkLocation>Home</NetworkLocation>
+            </OOBE>
+        </component>
+    </settings>
+</unattend>

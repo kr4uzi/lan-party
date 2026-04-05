@@ -37,12 +37,11 @@ $bootTargets = $data["boot-driver-target"] ?? [];
 $installTargets = $data["install-driver-target"] ?? [];
 $targets = array_unique(array_merge($bootTargets, $installTargets));
 
-
 $target2inf = [];
 foreach ($targets as $target) {
   if (!isset($db)) {
     try {
-      $db = new PDO("sqlite:" . $config["windrv"]["db"]);
+      $db = new PDO("sqlite:" . $config["windrv"]["db"], null, null, [PDO::SQLITE_ATTR_OPEN_FLAGS => PDO::SQLITE_OPEN_READONLY]);
       $db->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
     } catch (Exception $e) {
         dieWithPause("Database connection failed: {$e}");
@@ -104,7 +103,15 @@ GOTO :MOUNTSMB
 
 :INSTALL
 echo.
-X:\sources\setup.exe /noreboot /InstallFrom:Y:\<?php echo($installWim); ?> /Compact || GOTO :CLEANUP
+
+<?php
+$unattend = $_GET['unattend'] ?? '';
+if ($unattend) {
+  echo("X:\\sources\\setup.exe /noreboot /InstallFrom:Y:\\{$installWim} /unattend:Y:\\{$unattend} || GOTO :CLEANUP\r\n");
+} else {
+  echo("X:\\sources\\setup.exe /noreboot /InstallFrom:Y:\{$installWim} || GOTO :CLEANUP\r\n");
+}
+?>
 
 :: if the setup was aborted do the cleanup
 ::SET EL=%ERRORLEVEL%

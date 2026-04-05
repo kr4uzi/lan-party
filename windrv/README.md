@@ -21,16 +21,7 @@ python3 windrvscan.py path/to/inf.inf
 Note: The database will store relative or absolute paths depending on how the inf file was provided.
 
 # Adding Builtin Drivers from WIMs
-```sh
-# export all integrated drivers
-wimextract /srv/pxe/win11/boot.wim 1 /Windows/INF/*.inf --dest-dir=/srv/windrv/win11/boot
-
-# windows uses UTF-16 encoding in which the files are also exported
-find /srv/windrv/win11/boot -name "*.inf" -exec sh -c 'iconv -f UTF-16 -t UTF-8 "{}" > "{}.utf8" && mv "{}.utf8" "{}"' \;
-
-# add all drivers to the database
-find /srv/windrv/win11/boot -name "*.inf" | xargs -I {} python3 windrvscan.py "{}" -c "win11/boot.wim" -db /srv/windrv/drivers.sqlite3
-```
+`python3 windrvscan.py --database=/srv/windrv/drivers.sqlite3 /srv/pxe/win/win11/boot.wim`
 
 # TODOs
 - Implement support for "LayoutFile" (apparently only for the Version section and apparently only for Win2000 and WinXP)
