@@ -23,6 +23,11 @@ if (empty($installWim)) {
   $installWim = str_replace('/', '\\', $installWim);
 }
 
+$unattend = $_GET['unattend'] ?? '';
+if (!empty($unattend)) {
+  $unattend = str_replace('/', '\\', $unattend);
+}
+
 // parse query string where params can appear multiple times
 $queryString = $_SERVER['QUERY_STRING'] ?? '';
 $pairs = array_filter(explode('&', $queryString));
@@ -79,12 +84,11 @@ foreach ($bootTargets as $target) {
 }
 ?>
 
-wpeinit
+echo Initializing ...
+wpeinit WaitForNetwork
 
+echo Checking Network connection ...
 ping <?php echo($_SERVER['HTTP_HOST']); ?> /n 1 >nul 2>&1 || GOTO :NETWORKERROR
-
-:: high performance mode
-powercfg /s 8c5e7fda-e8bf-4a96-9a85-a6e23a8c635c
 
 :: samba slow cleanup will cause the mount to fail (if using default configuration)
 :: see README.md for fix
@@ -103,19 +107,15 @@ GOTO :MOUNTSMB
 
 :INSTALL
 echo.
+echo Starting setup ...
 
 <?php
-$unattend = $_GET['unattend'] ?? '';
 if ($unattend) {
-  echo("X:\\sources\\setup.exe /noreboot /InstallFrom:Y:\\{$installWim} /unattend:Y:\\{$unattend} || GOTO :CLEANUP\r\n");
+  echo("X:\\sources\\setup.exe /noreboot /InstallFrom:Y:\\win\\{$installWim} /unattend:Y:\\win\\{$unattend} || GOTO :CLEANUP\r\n");
 } else {
-  echo("X:\\sources\\setup.exe /noreboot /InstallFrom:Y:\{$installWim} || GOTO :CLEANUP\r\n");
+  echo("X:\\sources\\setup.exe /noreboot /InstallFrom:Y:\\win\\{$installWim} || GOTO :CLEANUP\r\n");
 }
 ?>
-
-:: if the setup was aborted do the cleanup
-::SET EL=%ERRORLEVEL%
-::IF %EL% NEQ 0 GOTO :CLEANUP
 
 for /f "tokens=2 delims==" %%a in ('bcdedit /enum {default} ^| find "osdevice"') do set TARGETDRIVE=%%a
 echo target %TARGETDRIVE%
@@ -133,14 +133,13 @@ if (!empty($installTargets)) {
 
 :CLEANUP
 echo Unmounting network drive ...
-pause
 net use Y: /delete >nul
 goto :EOF
 
 :INSTALLNOTFOUND
 echo [!]
 echo [!] ERROR: Unable to detect windows partition for automatic driver installation
-echo [!] 
+echo [!]
 echo [!] Please manually install the driver:
 echo [!] 1.) Make sure the partition is mounted:
 echo [!]     diskpart > list disk > select disk ? > list volume > select volume ? > assign letter=?
@@ -157,11 +156,10 @@ GOTO :CLEANUP
 :NETWORKERROR
 echo [!]
 echo [!] ERROR: No Network Connection
-echo [!] 
-echo [!] No network drivers installed, not installed successfully or no network connection!
 echo [!]
-echo [!] Enter EXIT or hit CTRL+C to exit
+echo [!] No or unsuccessfull network driver installation or no network connection!
+echo [!]
+echo [!] Press any key to reboot
 echo [!]
 pause
-cmd.exe
 GOTO :EOF

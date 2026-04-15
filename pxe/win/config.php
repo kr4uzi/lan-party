@@ -2,7 +2,7 @@
 
 return [
     "pxe" => [
-        "http" => "http://\${next-server}/pxe"
+        "http" => "http://\${next-server}/pxe/win"
     ],
     "windrv" => [
         "http" => "http://\${next-server}/windrv",

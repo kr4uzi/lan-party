@@ -47,13 +47,14 @@ To create the WinPE required for the installation of a particular Windows versio
 | WinPE 4.0     | Windows 8     | |
 | WinPE 5.0     | Windows 8.1   | |
 | 10.0.x        | Windows 10    | |
-| 10.0.22000    | Windows 11    | https://learn.microsoft.com/en-us/windows-hardware/get-started/adk-instal |
+| 10.0.22000    | Windows 11    | https://learn.microsoft.com/en-us/windows-hardware/get-started/adk-install |
 Reference: https://social.technet.microsoft.com/wiki/contents/articles/33619.windows-pe-version-overview.aspx
 
 Note: Drivers working a certain windows version also work no the derived WinPE - for this reason it is recommended to install Windows from a matching WinPE.
 To identify the exact windows version, you can use `wimlib-imagex info win7/winpe.wim`
 
 # WinPE: Windows 11
+Note: ADK 10.1.28000.1 (November 2025) has issues with driver loading, 10.1.26100.2454 (December 2024) was working fine though.
 Launch the "Deployment and Imaging Tools Environment" as Administrator
 ```
 prompt $g
@@ -160,10 +161,10 @@ https://www.youtube.com/watch?v=NieZ4dHisGo
 # Samba Network
 With Windows 11, unauthenticated shares are no longer accessible (which has what security benefit exactly if now everyone is using
 trivial credentials now), so we set guest ok = no and create a dummy user:
-```
-sudo adduser --no-create-home --disabled-password --disabled-login pxe
-sudo smbpasswd -a pxe
-sudo service smbd force-reload
+```sh
+adduser --no-create-home --disabled-password --disabled-login pxe
+smbpasswd -a pxe
+service smbd force-reload
 ```
 
 The Samba Server in its default configuration cleans up dead connection only after several hours
@@ -171,10 +172,10 @@ which causes the network drive mounting to fail very often. I do not know the ex
 occurrs if the request is coming from the same IP (and/or computer name?).
 The socket options contain the fix (keepalive) and also some transver improvements.
 
-sudo nano /etc/samba/smb.conf
+nano /etc/samba/smb.conf
 ```
 [global]
-socket options = TCP_NODELAY IPTOS_THROUGHPUT SO_KEEPALIVE=1 TCP_KEEPIDLE=60 TCP_KEEPCNT=2 TCP_KEEPINTVL=10 SO_RCVBUF=131072 SO_SNDBUF=13107
+socket options = TCP_NODELAY IPTOS_THROUGHPUT SO_KEEPALIVE=1 TCP_KEEPIDLE=60 TCP_KEEPCNT=2 TCP_KEEPINTVL=10 SO_RCVBUF=13107 SO_SNDBUF=13107
 
 [pxe]
 follow symlinks = yes
@@ -209,11 +210,43 @@ bcdedit /store BCD /set {default} device ramdisk=[boot]\Boot\boot.wim,{ramdiskop
 bcdedit /store BCD /set {default} osdevice ramdisk=[boot]\Boot\boot.wim,{ramdiskoptions}
 ```
 
-# Scan Builtin Drivers
+# Scan and Add Builtin Drivers
 ```sh
 cd /srv/windrv
 source .venv/bin/activate
 windrvscan.py --filter-class=Net /srv/pxe/win11/bootamd64.wim
+```
+
+# Windows DaRT
+Windows Diagnostics and Recovery Toolset is a official recovery tool set contained in the Windows Desktop Optimization Pack (MDOP) which extended support ended on April 2026.\
+The DaRT version matches the Windows version, e.g. DaRT 7 = Windows 10, therefore no DaRT for Windows 11 :(\
+The last MDOP ISO is from 2015 and it contains all DaRT version (7, 8, 8 SP1, 8.1, 10) + installers.
+After having installed Dart (e.g. MSDaRT70.msi) to have full tool support, you should also install Debugging Tools
+Win7: https://www.microsoft.com/en-us/download/details.aspx?id=8442 (use GRMSDKX_EN_DVD.iso - it contains debugging tools for x86 and x64)\
+Win10: https://go.microsoft.com/fwlink/?linkid=2312004
+
+# Windows Embedded
+For Windows 7 and 8 the embedded version are suited for iSCSI live boot.
+Win7: https://www.microsoft.com/en-us/download/details.aspx?id=11887
+Win8: https://www.microsoft.com/en-us/download/details.aspx?id=37019
+Win8.1: https://www.microsoft.com/en-us/download/details.aspx?id=40745
+On windows 7 UEFI, the partition needs to be formatted using diskpart (SHIFT + F10) though:
+```
+diskpart
+list disk
+select disk 0
+clean
+convert gpt
+
+create partition efi size=100
+format quick fs=fat32 label="EFI"
+assign letter=S
+
+create partition primary
+format quick fs=ntfs label="OS"
+assign letter=C
+
+exit
 ```
 
 # Live boot windows

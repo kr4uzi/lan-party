@@ -40,48 +40,8 @@
                 </SynchronousCommand>
                 <SynchronousCommand wcm:action="add">
                     <Order>3</Order>
-                    <CommandLine>reg add HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced /v Start_ShowMyDocs /t REG_DWORD /d 0 /f</CommandLine>
-                    <Description>Start Menu/Documents (Hide)</Description>
-                </SynchronousCommand>
-                <SynchronousCommand wcm:action="add">
-                    <Order>4</Order>
-                    <CommandLine>reg add HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced /v Start_ShowMyPics /t REG_DWORD /d 0 /f</CommandLine>
-                    <Description>Start Menu/Pictures (Hide)</Description>
-                </SynchronousCommand>
-                <SynchronousCommand wcm:action="add">
-                    <Order>5</Order>
-                    <CommandLine>reg add HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced /v Start_ShowMyMusic /t REG_DWORD /d 0 /f</CommandLine>
-                    <Description>Start Menu/Music (Hide)</Description>
-                </SynchronousCommand>
-                <SynchronousCommand wcm:action="add">
-                    <Order>6</Order>
                     <CommandLine>reg add HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced /v Start_ShowDownloads /t REG_DWORD /d 1 /f</CommandLine>
-                    <Description>Start Menu/Download (Show)</Description>
-                </SynchronousCommand>
-                <SynchronousCommand wcm:action="add">
-                    <Order>7</Order>
-                    <CommandLine>reg add HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced /v Start_ShowPrinters /t REG_DWORD /d 0 /f</CommandLine>
-                    <Description>Start Menu/Devices and Printers (Hide)</Description>
-                </SynchronousCommand>
-                <SynchronousCommand wcm:action="add">
-                    <Order>8</Order>
-                    <CommandLine>reg add HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced /v Start_ShowSetProgramAccessAndDefaults /t REG_DWORD /d 0 /f</CommandLine>
-                    <Description>Start Menu/Default Programs (Hide)</Description>
-                </SynchronousCommand>
-                <SynchronousCommand wcm:action="add">
-                    <Order>9</Order>
-                    <CommandLine>reg add HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced /v Start_ShowHelp /t REG_DWORD /d 0 /f</CommandLine>
-                    <Description>Start Menu/Help and Support (Hide)</Description>
-                </SynchronousCommand>
-                <SynchronousCommand wcm:action="add">
-                    <Order>10</Order>
-                    <CommandLine>reg add HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced /v Start_ShowRun /t REG_DWORD /d 1 /f</CommandLine>
-                    <Description>Start Menu/Run (Show)</Description>
-                </SynchronousCommand>
-                <SynchronousCommand wcm:action="add">
-                    <Order>11</Order>
-                    <CommandLine>reg delete HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\UserAssist /f</CommandLine>
-                    <Description>Start Menu (Clear)</Description>
+                    <Description>Start Menu: Show Downloads</Description>
                 </SynchronousCommand>
             </FirstLogonCommands>
             <OOBE>

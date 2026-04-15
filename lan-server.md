@@ -21,45 +21,60 @@ We want:
 - certbot
 
 ```sh
-sudo apt install apache2 dnsmasq samba mysql-server php libapache2-mod-php php-mysql php-sqlite3 phpmyadmin
+apt install apache2 dnsmasq samba mysql-server php libapache2-mod-php php-mysql php-sqlite3 phpmyadmin wimtools
 ```
 
 # Configure dnsmasq
 As both, this server itself and all clients connected should use the dnsmasq provided dns server. There is a built-in dns resolution service which is running on this host, we need to disable it.
-`sudo nano /etc/systemd/resolved.conf`
+`nano /etc/systemd/resolved.conf`
 ```
 DNSStubListener=no
 ```
 
+We want "internal" dns resolution to be also handled by dnsmasq (especially because of BF2 gamespy)
+`nano /etc/resolv.conf`
+```
+nameserver 127.0.0.1
+```
+
+Configure IP forwarding from LAN NIC to Internet NIC:
+`nano /etc/sysctl.conf`
+```sh
+net.ipv4.ip_forward=1
+net.ipv6.conf.all.forwarding=1
+```
+Apply:
+`sysctl --system` (or sysctl -p ?)
+
+Configure network
+`nano /etc/netplan/*.yaml`
+TBD: add example Wifi + LAN Bond configuration
+
 Configure DHCP
 ```sh
-sudo mkdir -p /srv/ftp/pxe
-sudo nano /etc/dnsmasq.conf
+mkdir -p /srv/pxe
+nano /etc/dnsmasq.conf
 ```
 ```
-interface=127.0.0.1
-interface=10.10.0.1
+domain-needed
+bogous-priv
+
+no-resolv
+no-poll
+
+server=192.168.178.1@wlp2s0
+
+listen-address=127.0.0.1
+listen-address=10.10.0.1
 bind-interfaces
+
+no-hosts
+
 dhcp-range=10.10.0.10,10.10.0.150,255.255.255.0,48h
-dhcp-host=krauzis-server,10.10.0.1,infinite
-enable-tftp
-tftp-root=/srv/ftp/pxe
 ```
 
 # configure samba (network sharing)
-Note: all lines without a preceeding comment can be found in the config and should be added below the example.
-`sudo nano /etc/samba/smb.conf`
-```
-[global]
-interfaces = lo bond0
-bind interfaces only = yes
-
-[pxe]
-path = /srv/ftp/pxe
-read only = yes
-guest ok = yes
-```
-
+See pxe-windows.md
 
 # Install MySQL
 

@@ -145,7 +145,7 @@ if ($db) {
                     $cfg["{$wimType}-driver-missing"] = false;
 
                     // if the driver is *not* found in the {boot|install}.wim add it to the initialization list
-                    if ($match['container'] != $wimFile) {
+                    if ($match['container'] != $guid) {
                         $cfg["{$wimType}-driver-target"][] = $match['target_id'];
                     }
 
@@ -218,9 +218,15 @@ foreach ($entries as $win => &$cfg) {
     echo(":win_{$win}\n");
     echo("kernel wimboot\n");
     echo("initrd BCD BCD\n");
-    echo("initrd win/boot.sdi boot.sdi\n");
+    echo("initrd boot.sdi boot.sdi\n");
     echo("initrd -n boot.wim " . $config["pxe"]["http"] . "/" . $cfg["boot"] . " boot.wim\n");
-    echo("initrd -n winpeshl.ini win/winpeshl.ini winpeshl.ini\n");
+    if (isset($cfg["winpeshl"])) {
+        if (!isempty($cfg["winpeshl"])) {
+            echo("initrd -n winpeshl.ini " . $cfg["winpeshl.ini"] . "winpeshl.ini\n");
+        }
+    } else {
+        echo("initrd winpeshl.ini winpeshl.ini\n");
+    }
 
     $bootTargets = $cfg["boot-driver-target"] ?? [];
     $installTargets = $cfg["install-driver-target"] ?? [];
@@ -246,7 +252,7 @@ foreach ($entries as $win => &$cfg) {
         echo("{$extra}\n");
     }
 
-    echo("initrd -n ipxe-startnet.cmd " . $config["pxe"]["http"] . "/win/startnet.php?{$params} ipxe-startnet.cmd\n");
+    echo("initrd -n ipxe-startnet.cmd " . $config["pxe"]["http"] . "/startnet.php?{$params} ipxe-startnet.cmd\n");
     echo("boot\n\n");
 }
 ?>
