@@ -2,14 +2,21 @@
 iPXE's shim depends on its own filename - which some UEFI firmware do not provide.
 Therefore a platform specific (x86_64 / arm64) and binary specific (snponly.efi / ipxe.efi) loading will not work.
 
+expected behaviour:
+ipxeboot/x86_64-sb/snponly-shim.efi -> ipxeboot/x86_64-sb/snponly.efi
 
+actual behaviour on MacOS Parallels and Asus H87M-Pro:
+ipxeboot/x86_64-sb/snponly-shim.efi -> ipxe.efi
+
+To see if your hardware is affected by this, compile the pxeinfo:\
+This folder contains a very basic verification EFI which prints out the loaded file path - which if empty means that the currentl running firmware doesn't support iPXE's automatic shim loading.
 
 # Setup
 ```sh
 python3 -m venv .venv
 source .venv/bin/activate
 pip install --upgrade pip
-pip install tftpy
+pip install fbtftp
 chmod +x tftp.py
 ```
 
