@@ -9,26 +9,7 @@ This document describes how to achieve the network booting for:
 
 Development was done using a ubuntu server 24.04 LTN installation on MacOS on a shared network.
 
-## Why not netboot.xyz?
-The greatest challenge of this project was not the network booting itself (except maybe the "magic file names" of wimboot), but the Windows configuration:
-- Which WinPE do i need?
-- How to configure WinPE properly?
-- Should I sanboot the ISO or rather boot WinPE?
-- How to inject drivers?
-
-The answer to those questions was:
-- Question: Which WinPE do i need?\
-Answer: The one with the same kernel version (thus driver support) for the Windows you're trying to install
-- Question: How to configure WinPE properly?\
-Answer: The OOTB winpe coming from the AIK / ADK is the smallest it can get, but you need at least the Setup component (+ Setup_en-us language component). 
-- Should I sanboot the ISO or rather boot WinPE?\
-Answer: sanboot and sanhook was for some reason horribly slow compared to "wimboot"ing the winpe image, in addition it doesn't support dynamic driver injection. Plus it wasts several hundert megabytes of space compared if you go with just winpe (boot.wim) + install.wim.
-- How to inject drivers?\
-Answer: I (and the maintainers of the wimboot repo) couldn't get on-boot driver initialization to work even when the driver was directly injected (dism "/Add-Drivers"-command), so a scripted "drvload" was always needed. If this is the case then there is no point of adding all drivers directly into the winpe image, but instead dynamically inject them during boot (see windrv).
-
-When it comes to netboox.xyz:\
-The documentation/knowledge base of netboot.xyz for Windows is not very detailed, and apparently central component is a `win_base_url` variable. This would hint that only a single WinPE is supported in the baseline configuration.\
-This pxe project allows in contrast: Detect which Windows version is supported based on the current hardware configuration, dynamically inject the driver which fits best and start the windows setup.
+Dependencies: `apt install unzip wimtools python3-venv`
 
 # Test Setup
 ## MacOS Note (Parallels)
@@ -45,18 +26,8 @@ TBD
 iPXE is the heart of the whole project and it is arguably the best PXE bootloader out there.
 ```sh
 mkdir -p /srv/pxe && cd /srv/pxe
-sudo wget https://github.com/ipxe/ipxe/releases/download/v2.0.0/ipxe-x86_64-sb.iso
-sudo mkdir /mnt/ipxeiso
-sudo mkdir /mnt/ipxeesp
-sudo mount /ipxe-x86_64-sb.iso /mnt/ipxeiso
-sudo mount /mnt/ipxeiso/???/esp.img /mnt/ipxeesp
-sudo cp /mnt/ipxeesp/EFI/BOOT/*.EFI .
-sudo mv IPXE.EFI ipxe.efi
-sudo umount /mnt/ipxeesp
-sudo umount /mnt/ipxeios
-sudo rm -d /mnt/ipxeesp
-sudo rm -d /mnt/ipxeiso
-sudo rm ipxe-x86_64-sb.iso
+wget https://github.com/ipxe/ipxe/releases/download/v2.0.0/ipxeboot.tar.gz
+tar xz ipxeboot.tar.gz
 ```
 
 ## The boot menu
@@ -64,7 +35,8 @@ The boot menu is the "autoexec.ipxe" file contained in this repo.
 Copy it to /srv/pxe
 
 ## Enable the HTTP Download
-Since HTTP is way faster than the TFTP download, also map the directory to the default/fallback virtual host:
+PXE boot relies on TFTP download and while modern TFTP versions (given they are supported by the firmware) should offer similar performance to HTTP, will just rely on HTTP in general.\
+Assuming apache2 was already installed of course: 
 `sudo ln -s /srv/pxe /var/www/html/pxe`
 
 # Create Menu Binaries
@@ -72,14 +44,14 @@ Since HTTP is way faster than the TFTP download, also map the directory to the d
 This linux is < 100MB and therefore loads super fast. By injecting a GUI, filemanager, webbrowser and NTFS support this can be used to do rescue missions.
 
 ```sh
-sudo mkdir /srv/pxe/tinycore && cd /srv/pxe/tinycore
-sudo wget http://tinycorelinux.net/17.x/x86/release/distribution_files/core.gz
-sudo wget http://tinycorelinux.net/17.x/x86/release/distribution_files/modules.gz
-sudo wget http://tinycorelinux.net/17.x/x86/release/distribution_files/modules64.gz
-sudo wget http://tinycorelinux.net/17.x/x86/release/distribution_files/rootfs.gz
-sudo wget http://tinycorelinux.net/17.x/x86_x64/release/distribution_files/rootfs64.gz
-sudo wget http://tinycorelinux.net/17.x/x86/release/distribution_files/vmlinuz
-sudo wget http://tinycorelinux.net/17.x/x86/release/distribution_files/vmlinuz64
+mkdir /srv/pxe/tinycore && cd /srv/pxe/tinycore
+wget http://tinycorelinux.net/17.x/x86/release/distribution_files/core.gz
+wget http://tinycorelinux.net/17.x/x86/release/distribution_files/modules.gz
+wget http://tinycorelinux.net/17.x/x86/release/distribution_files/modules64.gz
+wget http://tinycorelinux.net/17.x/x86/release/distribution_files/rootfs.gz
+wget http://tinycorelinux.net/17.x/x86_x64/release/distribution_files/rootfs64.gz
+wget http://tinycorelinux.net/17.x/x86/release/distribution_files/vmlinuz
+wget http://tinycorelinux.net/17.x/x86/release/distribution_files/vmlinuz64
 ```
 
 Use the build_ext.py script to build the assets container which contains the actual gui, webbrowser, etc. and their dependencies.
@@ -89,52 +61,31 @@ Note: UEFI only, but Secure Boot enabled!
 
 ```sh
 mkdir -p /srv/pxe/tools
-sudo wget https://www.memtest86.com/downloads/memtest86-usb.zip
-sudo unzip -j memtest86-usb.zip memtest86-usb.img -d /srv/pxe/tools
-sudo rm memtest86-usb.zip
+wget https://www.memtest86.com/downloads/memtest86-usb.zip
+unzip -j memtest86-usb.zip memtest86-usb.img -d /srv/pxe/tools
+rm memtest86-usb.zip
 ```
 
 ## MemTest86+
 memtest.org > Download > "Binary Files" (For PXE and chainloading)\
 Unzip it to /srv/pxe/tools
-
+(probably you need to `scp ~/Downloads/memtest86pp 10.10.0.1:/home/...`)
 
 ## Clonezilla
 Clonezilla helps with creating backups and also reapplying those. Helpful in case a quick backup is required and needs to be restored later.
-Visit the download page and transfer the zip file to /srv/tftp/tools using scp (like above)
+Visit the download page and transfer the zip file to /srv/pxe/tools using scp (like above)
 https://clonezilla.org/downloads/download.php?branch=stable
 
 ```sh
 unzip clonezilla
-sudo mkdir -p /srv/pxe/tools/clonezilla
+mkdir -p /srv/pxe/tools/clonezilla
 cd clonezilla/live
-sudo cp vmlinuz initrd.img filesystem.squashfs /srv/tftp/tools/clonezilla
+cp vmlinuz initrd.img filesystem.squashfs /srv/pxe/tools/clonezilla
 ```
 
 ## Windows
-The windows boot can be configured in win/config.php and the pxe-windows.md file shows how to create
-the required boot.wim and install.wim.
-In theory those can be simply taken from the ISO files, but using the methods shown, the filesizes
-can be greatly reduced.
-Most of this can also be done on linux using wimtools, which is required anyways (for the menu script):
-`sudo apt install wimtools`
+See pxe-windows.md
 
-I advise to build tiny / complete windows 7 / 11 versions:
-### Win 11
-Download Windows 11 IOS:
-https://www.microsoft.com/en-us/software-download/windows11
-
-Download this Script:
-https://github.com/ntdevlabs/tiny11builder/blob/main/tiny11maker.ps1
-
-Execute the Script
-```ps
-& { Set-ExecutionPolicy Bypass -Scope Process; .\tiny11maker.ps1 -ISO E -SCRATCH C }
-```
-
-### Win7
-Create a fully upgraded (including ESU updates!):
-https://blog.simplix.info/update7/
 
 # iSCSI
 ```sh

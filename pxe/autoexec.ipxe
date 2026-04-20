@@ -110,6 +110,6 @@ initrd ${base-url}/tinycore/onboot_${platform}.lst /assets/onboot.lst
 boot
 
 :ubuntu
-kernel ${base-url}/ubuntu/linux root=/dev/ram0 ramdisk_size=1500000 ip=dhcp iso-url=https://releases.ubuntu.com
+kernel ${base-url}/ubuntu/linux root=/dev/ram0 ramdisk_size=1500000 ip=dhcp iso-url=http://${next-server}/pxe/ubuntu/ubuntu
 initrd ${base-url}/ubuntu/initrd
 boot

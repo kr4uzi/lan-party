@@ -6,6 +6,20 @@ The goal is to provide OS installers for all windows milestones:
 - Windows 10 (32bit+64bit, UEFI - TBD)
 - Windows 11 (64bit, UEFI)
 
+# Windows 11 ISO (debloated)
+Download Windows 11 IOS:
+https://www.microsoft.com/en-us/software-download/windows11
+
+Download this Script:
+https://github.com/ntdevlabs/tiny11builder/blob/main/tiny11maker.ps1
+
+Execute the Script
+```ps
+& { Set-ExecutionPolicy Bypass -Scope Process; .\tiny11maker.ps1 -ISO E -SCRATCH C }
+```
+
+This Windows 11 installation takes less than 10 GB!
+
 # Driver Coverage
 This project should allow any PXE capable machine to install the most recent windows, 
 with the exception of Windows 8(.1) and Vista.
@@ -224,6 +238,9 @@ The last MDOP ISO is from 2015 and it contains all DaRT version (7, 8, 8 SP1, 8.
 After having installed Dart (e.g. MSDaRT70.msi) to have full tool support, you should also install Debugging Tools
 Win7: https://www.microsoft.com/en-us/download/details.aspx?id=8442 (use GRMSDKX_EN_DVD.iso - it contains debugging tools for x86 and x64)\
 Win10: https://go.microsoft.com/fwlink/?linkid=2312004
+
+File Hashes for the ISO containing the DaRT Installer:
+DaRT10: SHA1: acd095c74a23fa67c9787a9c4014cb278b5b520c SHA256: 82889a16cd81df4539c12b9e9d717e2d6615549a037c2c628d655f10645a8f06\
 
 # Windows Embedded
 For Windows 7 and 8 the embedded version are suited for iSCSI live boot.

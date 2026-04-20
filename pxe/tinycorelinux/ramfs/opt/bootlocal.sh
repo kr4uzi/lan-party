@@ -5,3 +5,5 @@
 mkdir -p /home/tc/.netsurf
 echo "enable_javascript:1" > /home/tc/.netsurf/Choices
 chown -R tc:staff /home/tc/.netsurf
+
+ntpd -q -p 10.10.0.1
