@@ -96,6 +96,7 @@ goto start
 menu Linux
 item tinycore TinyCore v17
 item ubuntu Ubuntu 25.10
+item alpine Alpine 3.23.4
 item start <back>
 choose target && goto ${target}
 
@@ -112,4 +113,9 @@ boot
 :ubuntu
 kernel ${base-url}/ubuntu/linux root=/dev/ram0 ramdisk_size=1500000 ip=dhcp iso-url=http://${next-server}/pxe/ubuntu/ubuntu
 initrd ${base-url}/ubuntu/initrd
+boot
+
+:alpine
+kernel ${base-url}/alpine/vmlinuz-lts alpine_repo=https://dl-cdn.alpinelinux.org/alpine/latest-stable/main modloop=${base-url}/alpine/modloop-lts
+initrd ${base-url}/alpine/initramfs-lts
 boot

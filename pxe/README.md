@@ -1,7 +1,7 @@
 # PXE-Boot
 This document describes how to achieve the network booting for:
 - UEFI + BIOS platforms
-- Linux: Ubuntu, TinyCoreLinux
+- Linux: Ubuntu*, TinyCoreLinux
 - Windows: Win11*, Win7*
 - Tools: Memtest*, Filezilla
 
@@ -19,7 +19,16 @@ vm.efi.secureboot=1
 vm.bios.efi=1
 ```
 ## Linux
-TBD
+## Ubuntu
+Where the hell did I get the netboot vmlinuz + initrd from?
+
+## Alpine Linux
+```sh
+cd /srv/pxe/alpine
+wget https://dl-cdn.alpinelinux.org/alpine/latest-stable/releases/x86_64/netboot/vmlinuz-lts
+wget https://dl-cdn.alpinelinux.org/alpine/latest-stable/releases/x86_64/netboot/modloop-lts
+wget https://dl-cdn.alpinelinux.org/alpine/latest-stable/releases/x86_64/netboot/initramfs-lts
+```
 
 # Setup
 ## iPXE
@@ -85,7 +94,6 @@ cp vmlinuz initrd.img filesystem.squashfs /srv/pxe/tools/clonezilla
 
 ## Windows
 See pxe-windows.md
-
 
 # iSCSI
 ```sh
