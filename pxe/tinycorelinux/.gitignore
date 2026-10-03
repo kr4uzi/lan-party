@@ -1,2 +1,4 @@
-build*/
-assets*.gz
+cache/
+vmlinuz*
+core*.gz
+extensions*.gz
