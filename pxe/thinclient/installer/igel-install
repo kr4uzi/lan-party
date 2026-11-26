@@ -1,0 +1,39 @@
+#!/bin/sh
+# tty1 of the netboot installer: pick the target disk and hand it to igel-build.sh,
+# which asks for ERASE before it touches anything. Settings baked in by build.sh
+# (PORTAL_URL, IGEL_HOSTNAME, ...) come from /etc/igel-install.conf.
+[ -f /etc/igel-install.conf ] && . /etc/igel-install.conf
+
+# the NIC driver probes asynchronously after insmod
+n=0
+while [ ! -e /sys/class/net/eth0 ] && [ "$n" -lt 15 ]; do sleep 1; n=$((n + 1)); done
+ip link set lo up
+ip link set eth0 up   # udhcpc does not do this itself
+udhcpc -i eth0 -q -n >/dev/null 2>&1 || echo "WARNING: no DHCP lease on eth0"
+
+if [ -z "${DISK:-}" ]; then
+    for d in /dev/mmcblk0 /dev/nvme0n1 /dev/sda /dev/vda; do
+        [ -b "$d" ] && { DISK=$d; break; }
+    done
+fi
+
+echo "================================================================"
+echo "  LAN party thin client - installer"
+echo "================================================================"
+if [ -n "${DISK:-}" ]; then
+    /usr/local/sbin/igel-build.sh "$DISK"
+    rc=$?
+else
+    echo "No target disk found (looked for mmcblk0, nvme0n1, sda, vda)."
+    rc=1
+fi
+
+echo
+if [ "$rc" = 0 ]; then
+    printf 'Installation finished. Press Enter to reboot... '
+    read _
+    reboot
+else
+    echo "The installer stopped (exit $rc). A shell follows; 'reboot' when done."
+    exec /bin/sh -l
+fi

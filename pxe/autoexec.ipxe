@@ -1,6 +1,9 @@
 #!ipxe
 
 set base-url http://${next-server}/pxe
+# iPXE trusts public CAs (lan.krauzi.de's Let's Encrypt certificate) through
+# cross-signed roots from ca.ipxe.org; this local mirror works offline
+set crosscert ${base-url}/crosscert
 set mt86p_ver 800
 iseq ${buildarch} x86_64 && set mt86p_arch x86_64 ||
 iseq ${buildarch} i386   && set mt86p_arch i586   ||
@@ -8,15 +11,22 @@ iseq ${buildarch} arm64  && set mt86p_arch la64   ||
 
 set nicidx:int32 0
 :nicloop
-isset ${net${nicidx}/mac} || goto start
+isset ${net${nicidx}/mac} || goto resume
 set nloc ${net${nicidx}/busloc}
-set ven ${pci/${nloc}.0x00.2}
-set dev ${pci/${nloc}.0x02.2}
-set rev ${pci/${nloc}.0x08.1}
+set ven  ${pci/${nloc}.0x00.2}
+set dev  ${pci/${nloc}.0x02.2}
+set rev  ${pci/${nloc}.0x08.1}
+set cc   ${pci/${nloc}.0x09.3}
 set subven ${pci/${nloc}.0x2C.2}
 set subsys ${pci/${nloc}.0x2E.2}
-set nicdata ${nicdata}&nics[${nicidx}][mac]=${net${nicidx}/mac:hexhyp}&nics[${nicidx}][ven]=${ven}&nics[${nicidx}][dev]=${dev}&nics[${nicidx}][rev]=${rev}&nics[${nicidx}][subven]=${subven}&nics[${nicidx}][subsys]=${subsys}
+set nicdata ${nicdata}&nics[${nicidx}][mac]=${net${nicidx}/mac:hexhyp}&nics[${nicidx}][ven]=${ven}&nics[${nicidx}][dev]=${dev}&nics[${nicidx}][rev]=${rev}&nics[${nicidx}][class]=${cc}&nics[${nicidx}][subven]=${subven}&nics[${nicidx}][subsys]=${subsys}&nics[${nicidx}][busloc]=${nloc}
 inc nicidx && goto nicloop
+
+# The machine an admin is installing / editing the Windows Live golden image on
+# goes straight back to it (Windows Setup reboots unattended); anything else
+# gets "exit" and continues to the menu (442-liveboot-menu.md)
+:resume
+chain --autofree http://${next-server}:8080/resume?mac=${mac:hexhyp}&nic=${pci/${busloc}.0x00.2}:${pci/${busloc}.0x02.2}&busloc=${busloc} ||
 
 :start
 menu Network Boot
@@ -86,7 +96,7 @@ boot
 # Windows
 #
 :windows
-chain --autofree http://${next-server}/pxe/win/menu.php?arch=${buildarch}&platform=${platform}&sb=${efi/SecureBoot}&uuid=${uuid}${nicdata}
+chain --autofree http://${next-server}/pxe/win/menu.php?arch=${buildarch}&platform=${platform}&sb=${efi/SecureBoot}&uuid=${uuid}${nicdata}&boot=${mac:hexhyp}
 goto start
 
 #
@@ -95,19 +105,19 @@ goto start
 :linux
 menu Linux
 item tinycore TinyCore v17
-item ubuntu Ubuntu 25.10
-item alpine Alpine 3.23.4
+item ubuntu Ubuntu
+item thinclient ThinClient (install)
 item start <back>
 choose target && goto ${target}
 
 :tinycore
-iseq ${buildarch} x86_64 && set tinylib 64 || set tinylib
-kernel ${base-url}/tinycore/vmlinuz${tinylib} norestore noswap desktop=flwm_topside tce=/assets
-initrd ${base-url}/tinycore/rootfs${tinylib}.gz
-initrd ${base-url}/tinycore/core.gz
-initrd ${base-url}/tinycore/modules${tinylib}.gz
-initrd ${base-url}/tinycore/assets${tinylib}.gz
-initrd ${base-url}/tinycore/onboot_${platform}.lst /assets/onboot.lst
+iseq ${buildarch} x86_64 && set tckern vmlinuz64 || set tckern vmlinuz
+iseq ${buildarch} x86_64 && set tcinit corepure64.gz || set tcinit core.gz
+iseq ${buildarch} x86_64 && set tcext extensions64.gz || set tcext extensions.gz
+kernel ${base-url}/tinycore/${tckern} norestore noswap desktop=flwm_topside lst=onboot_${platform}.lst
+initrd ${base-url}/tinycore/${tcinit}
+initrd ${base-url}/tinycore/${tcext}
+initrd ${base-url}/tinycore/bootsync.sh /opt/bootsync.sh mode=755
 boot
 
 :ubuntu
@@ -115,7 +125,36 @@ kernel ${base-url}/ubuntu/linux root=/dev/ram0 ramdisk_size=1500000 ip=dhcp iso-
 initrd ${base-url}/ubuntu/initrd
 boot
 
-:alpine
-kernel ${base-url}/alpine/vmlinuz-lts alpine_repo=https://dl-cdn.alpinelinux.org/alpine/latest-stable/main modloop=${base-url}/alpine/modloop-lts
-initrd ${base-url}/alpine/initramfs-lts
-boot
+#
+# LAN Party Thin Client
+#
+# The installer runs on Ubuntu's signed kernel (Microsoft -> shim -> Canonical), so it
+# starts with Secure Boot on and nothing enrolled. The installed system gets its own key;
+# the one-time MokManager confirmation happens when it first boots from its disk.
+# Building the files: pxe/thinclient/build.sh on the server.
+:thinclient
+imgfree
+iseq ${efi/SecureBoot} 01 && goto thinclient_sb ||
+:thinclient_boot
+kernel ${base-url}/thinclient/vmlinuz console=tty0 || goto thinclient_failed
+initrd ${base-url}/thinclient/installer.img || goto thinclient_failed
+boot || goto thinclient_failed
+goto start
+
+:thinclient_sb
+shim ${base-url}/thinclient/shimx64.efi || goto thinclient_noshim
+goto thinclient_boot
+
+:thinclient_failed
+echo
+echo Could not start the installer. Expected ${base-url}/thinclient/vmlinuz and
+echo installer.img on the server - run pxe/thinclient/build.sh there.
+prompt Press any key to go back...
+goto start
+
+:thinclient_noshim
+echo
+echo This iPXE build has no shim support, so it cannot start a signed kernel while
+echo Secure Boot is on. Turn Secure Boot off in the firmware setup instead.
+prompt Press any key to go back...
+goto start

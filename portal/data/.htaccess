@@ -1,0 +1,7 @@
+# The database and the uploaded floor plan live here. plan.php reads the image
+# server-side, so nothing in this directory needs to be reachable by URL.
+#
+# This requires "AllowOverride All" (or at least AuthConfig) on /srv/portal, which
+# portal.conf sets. Without it Apache ignores this file and the deny fails silently --
+# check with:  curl -o /dev/null -w '%{http_code}\n' http://lanparty.lan.party/data/portal.sqlite3
+Require all denied

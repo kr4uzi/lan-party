@@ -1,0 +1,14 @@
+#!/bin/sh
+# PID 1 of the thin client installer (Ubuntu's signed kernel, this Alpine initrd).
+# Mount the basics, load the modules build.sh picked, hand over to busybox init.
+export PATH=/usr/sbin:/usr/bin:/sbin:/bin
+mount -t proc proc /proc
+mount -t sysfs sysfs /sys
+mount -t devtmpfs devtmpfs /dev
+mkdir -p /dev/pts /dev/shm /run /tmp
+mount -t devpts devpts /dev/pts
+mount -t tmpfs tmpfs /run
+# mokutil and efibootmgr write here
+[ -d /sys/firmware/efi/efivars ] && mount -t efivarfs efivarfs /sys/firmware/efi/efivars
+while read -r ko; do insmod "$ko" 2>/dev/null || true; done < /etc/installer-modules
+exec /sbin/init
