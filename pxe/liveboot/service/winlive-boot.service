@@ -1,0 +1,14 @@
+[Unit]
+Description=Windows live boot service
+After=tgt.service lvm2-monitor.service
+Requires=tgt.service
+
+[Service]
+Type=simple
+EnvironmentFile=-/etc/winlive/directory.env
+Environment=WINLIVE_ROOT=/srv/winlive WINLIVE_IP=10.10.0.1 "WINLIVE_HTTPS_URL=https://lan.krauzi.de/winlive" WINLIVE_REQUIRE_LOGIN=1
+ExecStart=/usr/local/sbin/winlive-boot.py
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target

@@ -1,9 +1,10 @@
 <!-- requires: feature liveboot -->
 # Directory: Samba AD DC for the Windows Live login
 
-> **Not runnable from this repository yet.** The boot service (`winlive-boot.py`) is being
-> rewritten, and the test bench scripts this doc refers to under `test/` (`directory.sh`,
-> `pvm.sh`) are lost. Its blocks are not tagged: `apply.py` only lists this doc.
+> **First version, not tested on a server yet.** The boot service is
+> `pxe/liveboot/service/winlive-boot.py` (see its `README.md`); it has only run against the
+> fakes in its tests, not against real LVM, tgt, the DC, iPXE or WinPE. The test bench scripts
+> under `test/` (`directory.sh`, `pvm.sh`) are lost. Blocks are not tagged: `apply.py` only lists this doc.
 
 The accounts behind the Windows Live login (`442-liveboot-menu.md`): a Samba Active
 Directory domain controller on the party server, so one account works for
