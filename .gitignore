@@ -5,3 +5,4 @@ vm/
 portal/data/*
 !portal/data/.htaccess
 pxe/liveboot/devepxeboot/
+__pycache__/
