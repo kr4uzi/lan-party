@@ -1,0 +1,9 @@
+[submodule "vendor/ipxe-tftp"]
+	path = vendor/ipxe-tftp
+	url = https://github.com/kr4uzi/ipxe-tftp.git
+[submodule "vendor/windrv"]
+	path = vendor/windrv
+	url = https://github.com/kr4uzi/windrv.git
+[submodule "vendor/nic-onboard"]
+	path = vendor/nic-onboard
+	url = https://github.com/kr4uzi/nic-onboard.git
