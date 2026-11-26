@@ -1,11 +1,12 @@
 <!-- requires: feature liveboot -->
 # Live boot in the Windows menu
 
-> **Not runnable from this repository yet.** The boot service (`winlive-boot.py`) is being
-> rewritten, and the test bench scripts this doc refers to under `test/` (`directory.sh`,
-> `pvm.sh`) are lost. Its blocks are not tagged: `apply.py` only lists this doc.
+> **First version, not tested on a server yet.** The boot service is
+> `pxe/liveboot/service/winlive-boot.py` (see its `README.md`); it has only run against the
+> fakes in its tests, not against real LVM, tgt, the DC, iPXE or WinPE. The test bench scripts
+> under `test/` (`directory.sh`, `pvm.sh`) are lost. Blocks are not tagged: `apply.py` only lists this doc.
 
-How the winlive live boot (`test/winlive-boot.py`, the "boot service") sits in
+How the winlive live boot (`pxe/liveboot/service/winlive-boot.py`, the "boot service") sits in
 the menu chain `autoexec.ipxe` -> `win/menu.php`, behind a login. The changes
 are in `autoexec.ipxe`, `win/config.php` and `win/menu.php`; this file is the
 server side and the reasoning. Accounts come from the Samba AD DC

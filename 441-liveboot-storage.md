@@ -1,13 +1,14 @@
 <!-- requires: feature liveboot -->
 # Storage strategy: LVM thin branches
 
-> **Not runnable from this repository yet.** The boot service (`winlive-boot.py`) is being
-> rewritten, and the test bench scripts this doc refers to under `test/` (`directory.sh`,
-> `pvm.sh`) are lost. Its blocks are not tagged: `apply.py` only lists this doc.
+> **First version, not tested on a server yet.** The boot service is
+> `pxe/liveboot/service/winlive-boot.py` (see its `README.md`); it has only run against the
+> fakes in its tests, not against real LVM, tgt, the DC, iPXE or WinPE. The test bench scripts
+> under `test/` (`directory.sh`, `pvm.sh`) are lost. Blocks are not tagged: `apply.py` only lists this doc.
 
-How the disks behind the iSCSI targets are organised. `test/winlive-boot.py`
-currently uses plain files and device-mapper snapshots (see the end); this
-describes the LVM thin layout for golden -> model -> user branches.
+How the disks behind the iSCSI targets are organised: the LVM thin layout for
+golden -> model -> user branches, which `pxe/liveboot/service/winlive-boot.py` implements.
+The previous service used plain files and device-mapper snapshots (see the end).
 
 Profile capture and application (the NIC onboarding) are not
 part of this file; where a stage needs them it says **MANUAL STEP**.
@@ -218,19 +219,20 @@ lvremove -f winlive/live-<mac>                               # stale live copies
 lvremove -f winlive/golden-r1                                # only when no child left
 ```
 
-On server start, remove all `live-*` volumes and recreate the targets, as
-`winlive-boot.py`'s `reset()` does today for snapshots and loop devices.
+On server start, remove the `live-*` volumes that no target serves and recreate the
+targets. After a reboot tgt has none, so all of them go; a restart of the service alone
+keeps the copies of machines that are still running.
 
-## Compared with the current implementation
+## Compared with the previous implementation
 
-`test/winlive-boot.py` today:
+The previous `test/winlive-boot.py` (lost):
 
 - golden: sparse file `/srv/winlive/golden.img`
 - live copy: `dmsetup create winlive-<mac> --table "0 <sectors> snapshot <golden loop> <cow loop> N 16"`,
   COW in a sparse file `/srv/winlive/cow/<mac>`, dropped on the next boot
 - no model or user layer
 
-| | dm-snapshot (now) | LVM thin |
+| | dm-snapshot (before) | LVM thin |
 | --- | --- | --- |
 | throwaway live copy | yes | yes |
 | snapshot of a snapshot | clumsy, each level slower | native, any depth |
