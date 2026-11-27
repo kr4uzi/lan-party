@@ -1,0 +1,7 @@
+# busybox init of the thin client installer (pxe/thinclient/build.sh)
+::sysinit:/bin/hostname thinclient-installer
+tty1::once:/usr/local/sbin/igel-install
+tty2::askfirst:/bin/sh -l
+tty3::askfirst:/bin/sh -l
+::ctrlaltdel:/sbin/reboot
+::shutdown:/bin/sync

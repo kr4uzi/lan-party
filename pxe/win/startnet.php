@@ -15,6 +15,7 @@ function dieWithPause($message) {
 }
 
 $config = require 'config.php';
+require_once 'windrv.php';
 
 $installWim = $_GET['install-wim'] ?? '';
 if (empty($installWim)) {
@@ -43,40 +44,24 @@ $installTargets = $data["install-driver-target"] ?? [];
 $targets = array_unique(array_merge($bootTargets, $installTargets));
 
 $target2inf = [];
-foreach ($targets as $target) {
-  if (!isset($db)) {
-    try {
-      $db = new PDO("sqlite:" . $config["windrv"]["db"], null, null, [PDO::SQLITE_ATTR_OPEN_FLAGS => PDO::SQLITE_OPEN_READONLY]);
-      $db->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
-    } catch (Exception $e) {
-        dieWithPause("Database connection failed: {$e}");
+if (!empty($targets)) {
+  // path of the INF inside of each driver package (download.php?target=<id>, injected by menu.php)
+  [$response, $error] = windrvApi($config, ["action" => "targets", "id" => array_values($targets)]);
+  if ($error) {
+    dieWithPause($error);
+  }
+
+  foreach ($targets as $target) {
+    $match = $response["targets"][$target] ?? null;
+    if (!$match) {
+      dieWithPause("Unknown Driver Target with ID={$target}");
     }
+
+    $fileBase = "ipxe-driver-target-{$target}";
+    echo("mkdir X:\\{$fileBase}\r\n");
+    echo("expand {$fileBase}.cab -F:* X:\\{$fileBase} >nul\r\n");
+    $target2inf[$target] = "X:\\{$fileBase}\\" . str_replace('/', '\\', $match['inf']);
   }
-
-  $stmt = $db->prepare(<<<SQL
-    SELECT driver.inf as inf_file, target.root as root_path
-    FROM `target`
-    JOIN driver ON target.driver = driver.id
-    WHERE `target`.id = :target
-    LIMIT 1
-  SQL);
-  $stmt->execute([
-      ':target' => $target
-  ]);
-  $match = $stmt->fetch(PDO::FETCH_ASSOC);
-  if (!$match) {
-    dieWithPause("Unknown Driver Target with ID={$target}");
-  }
-
-  $fileBase = "ipxe-driver-target-{$target}";
-  echo("mkdir X:\\{$fileBase}\r\n");
-  echo("expand {$fileBase}.cab -F:* X:\\{$fileBase} >nul\r\n");
-
-  $inf = $match['root_path'];
-  if ($inf == '.') $inf = '';
-  else $inf .= '\\';
-  $inf .= $match['inf_file'];
-  $target2inf[$target] = "X:\\{$fileBase}\\$inf";
 }
 
 foreach ($bootTargets as $target) {
@@ -118,15 +103,17 @@ if ($unattend) {
 ?>
 
 for /f "tokens=2 delims==" %%a in ('bcdedit /enum {default} ^| find "osdevice"') do set TARGETDRIVE=%%a
-echo target %TARGETDRIVE%
 if "%TARGETDRIVE%"=="" GOTO :INSTALLNOTFOUND
+:: osdevice is "partition=C:", keep the drive letter only
+set TARGETDRIVE=%TARGETDRIVE:~0,1%
+echo target %TARGETDRIVE%:
 
 <?php
 if (!empty($installTargets)) {
   echo("echo Installing driver(s) ...\r\n");
 
   foreach ($installTargets as $target) {
-    echo("dism /Image:%TARGETDRIVE%:\ /Add-Driver:{$target2inf[$target]} >nul 2>&1\r\n");
+    echo("dism /Image:%TARGETDRIVE%:\\ /Add-Driver /Driver:{$target2inf[$target]} >nul 2>&1\r\n");
   }
 }
 ?>
