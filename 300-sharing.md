@@ -26,8 +26,9 @@ exist, so a server without, say, Windows installs simply has no `[pxe]` share.
 [global]
 socket options = TCP_NODELAY IPTOS_THROUGHPUT SO_KEEPALIVE=1 TCP_KEEPIDLE=60 TCP_KEEPCNT=2 TCP_KEEPINTVL=10
 
-# scratch: this doc; pxe: 430-pxe-windows.md
+# scratch, games: this doc; pxe: 430-pxe-windows.md
 include = /etc/samba/shares/scratch.conf
+include = /etc/samba/shares/games.conf
 include = /etc/samba/shares/pxe.conf
 ```
 
@@ -86,6 +87,39 @@ systemctl is-active --quiet smbd
 smbclient //127.0.0.1/scratch -U party%party -c 'put /etc/hostname .apply-check; rm .apply-check' >/dev/null 2>&1 ||
 	{ echo "party cannot write to [scratch]"; exit 1; }
 if smbclient -N //127.0.0.1/scratch -c ls >/dev/null 2>&1; then echo "a guest got into [scratch]"; exit 1; fi
+```
+
+## Games share
+
+The games, read-only and without a password: the thin clients mount it as guest
+(`lan-share` in `igel-build.sh`: `//<server>/games` at `/media/lan`). Windows 11 will not
+use a guest share (§1); Windows machines take the games from the HTTP listing below.
+Files are put into `/srv/games` on the server itself, as root.
+
+`/etc/samba/shares/games.conf`
+```ini file=/etc/samba/shares/games.conf
+[games]
+	comment = Games (read-only)
+	path = /srv/games
+	read only = yes
+	browseable = yes
+	guest ok = yes
+```
+
+```sh run
+mkdir -p /srv/games
+testparm -s >/dev/null
+systemctl reload smbd
+```
+
+```sh verify
+# a guest can list [games] but not write to it
+smbclient -N //127.0.0.1/games -c ls >/dev/null 2>&1 ||
+	{ echo "a guest cannot list [games]"; exit 1; }
+if smbclient -N //127.0.0.1/games -c 'put /etc/hostname .apply-check' >/dev/null 2>&1; then
+	smbclient -N //127.0.0.1/games -c 'rm .apply-check' >/dev/null 2>&1
+	echo "a guest can write to [games]"; exit 1
+fi
 ```
 
 ## Games over HTTP

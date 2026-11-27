@@ -54,6 +54,9 @@ Content (temporary just to setup the stats)
 	ServerName bf2web.gamespy.com
 
 	DocumentRoot "/usr/local/bf2stats/Web Files"
+	# The portal's server-wide "Alias / /srv/portal/" (220-portal.md) is inherited by
+	# every vhost and beats DocumentRoot; an Alias of the vhost's own is checked first.
+	Alias / "/usr/local/bf2stats/Web Files/"
 	<Directory "/usr/local/bf2stats/Web Files">
 		Options FollowSymLinks
 		AllowOverride All
@@ -75,6 +78,10 @@ systemctl reload apache2
 # the stats site answers for its gamespy name
 code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 5 -H 'Host: bf2web.gamespy.com' http://127.0.0.1/)
 [ "$code" != 000 ] && [ "$code" -lt 500 ] || { echo "bf2web.gamespy.com answers HTTP $code"; exit 1; }
+# and it is the stats site, not the portal at the web root
+if curl -s --max-time 5 -H 'Host: bf2web.gamespy.com' http://127.0.0.1/ | grep -q '<title>LAN Party</title>'; then
+	echo "bf2web.gamespy.com serves the portal"; exit 1
+fi
 ```
 
 ## Install Gamespy Emulator

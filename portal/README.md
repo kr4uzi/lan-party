@@ -21,9 +21,9 @@ This folder is self-contained. Nothing outside it is required to build, install 
 
 Restated here so this document stands alone:
 
-- **Ubuntu server, Apache with `mod_php`, `php-sqlite3`.** No composer, no build step, no
-  framework. `apt install apache2 php libapache2-mod-php php-sqlite3` is the whole
-  dependency list.
+- **Ubuntu server, Apache with `mod_php`, `php-sqlite3`, `php-mbstring`.** No composer, no
+  build step, no framework. `apt install apache2 php libapache2-mod-php php-sqlite3
+  php-mbstring` is the whole dependency list.
 - **Served at the web root** of `http://lanparty.lan.party/`, because the thin clients
   open exactly that URL as their browser homepage.
 - **The LAN is `10.10.0.0/24` and `fd10:10::/64`, dual-stack.** dnsmasq runs DHCPv6 *and*
